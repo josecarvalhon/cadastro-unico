@@ -8,37 +8,37 @@ A especificação está em [`Cadastro_Unico_Projeto_para_gerar.pdf`](Cadastro_Un
 ## Arquitetura
 
 ```
-┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐
-│ Empresa A  │   │ Empresa B  │   │ Empresa C  │   │ Empresa D  │   │ Empresa E  │
-│ PostgreSQL │   │   MySQL    │   │  MongoDB   │   │   CSV      │   │  API REST  │
-└─────┬──────┘   └─────┬──────┘   └─────┬──────┘   └─────┬──────┘   └─────┬──────┘
-      │                │                │                │                │
-      └──────┬─────────┴────────┬───────┴────────┬───────┴────────┬───────┘
-             │ ingest.bronze.*  │                │                │
-             ▼                  ▼                ▼                ▼
-   ┌────────────────────────────────────────────────────────────────────┐
-   │                  Bronze — Parquet bruto no MinIO                   │
-   │              s3://lakehouse/bronze/{empresa}/{tipo}/                │
-   └────────────────────────────────┬───────────────────────────────────┘
-                          dbt run   │ (stg_*)
-                                    ▼
-   ┌────────────────────────────────────────────────────────────────────┐
-   │       Prata — schema comum + atributos_extras (JSON por fonte)     │
-   │   int_clientes_padronizados  •  int_fornecedores_padronizados       │
-   └────────────────────────────────┬───────────────────────────────────┘
-                          dbt run   │ (clusters + golden)
-                                    ▼
-   ┌────────────────────────────────────────────────────────────────────┐
-   │           Ouro — Golden Records (1 linha = 1 entidade real)        │
-   │   golden_clientes  •  golden_fornecedores  •  metricas_qualidade   │
-   └────────────────────────────────┬───────────────────────────────────┘
-                                    │
-                ┌───────────────────┴───────────────────┐
-                ▼                                       ▼
-        ┌───────────────┐                      ┌────────────────┐
-        │ FastAPI       │                      │ Shell DuckDB   │
-        │ /clientes/... │                      │ ad-hoc SQL     │
-        └───────────────┘                      └────────────────┘
+┌──────────────────────┐ ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐
+│   MONITORAMENTO      │ │ Empresa A  │  │ Empresa B  │  │ Empresa C  │  │ Empresa D  │  │ Empresa E  │
+│     Elementary       │ │ PostgreSQL │  │   MySQL    │  │  MongoDB   │  │   CSV      │  │  API REST  │
+│ ──────────────────── │ └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
+│                      │       │               │               │               │               │
+│ • freshness          │       └──────┬────────┴───────┬───────┴───────┬───────┴───────┬───────┘
+│ • volume_anomalies   │              │ ingest.bronze.*│               │               │
+│ • dimension_anomalies│              ▼                ▼               ▼               ▼
+│ • schema_changes     │     ┌───────────────────────────────────────────────────────────┐
+│ • test runs          │ ──► │           Bronze — Parquet bruto no MinIO                 │
+│                      │     │           s3://lakehouse/bronze/{empresa}/{tipo}/         │
+│                      │     └─────────────────────────────┬─────────────────────────────┘
+│                      │                          dbt run  │ (stg_*)
+│                      │                                   ▼
+│                      │     ┌───────────────────────────────────────────────────────────┐
+│                      │ ──► │     Prata — schema comum + atributos_extras (JSON)        │
+│                      │     │   int_clientes_padronizados • int_fornecedores_padroniz.  │
+│                      │     └─────────────────────────────┬─────────────────────────────┘
+│                      │                          dbt run  │ (clusters + golden)
+│                      │                                   ▼
+│                      │     ┌───────────────────────────────────────────────────────────┐
+│ → docs/              │ ──► │       Ouro — Golden Records (1 linha = 1 entidade)        │
+│   elementary_        │     │   golden_clientes • golden_fornecedores • metricas_qual.  │
+│   report.html        │     └─────────────────────────────┬─────────────────────────────┘
+│                      │                                   │
+└──────────────────────┘                ┌──────────────────┴──────────────────┐
+                                        ▼                                     ▼
+                                ┌───────────────┐                    ┌────────────────┐
+                                │ FastAPI       │                    │ Shell DuckDB   │
+                                │ /clientes/... │                    │ ad-hoc SQL     │
+                                └───────────────┘                    └────────────────┘
 ```
 
 **Stack:** Python · MinIO · Parquet · DuckDB · dbt-duckdb · Airflow 2.10 · FastAPI · Elementary · Docker Compose.
