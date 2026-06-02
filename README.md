@@ -1,6 +1,7 @@
 # Cadastro Único — Plataforma Unificada de Cadastros para Holdings
 
-Projeto da disciplina **Engenharia de Dados — CEUB**. Implementa um **Data Lakehouse com Arquitetura Medalhão** (Bronze → Prata → Ouro) que unifica cadastros de clientes e fornecedores fragmentados entre 5 subsidiárias fictícias de uma holding, cada uma com sistema e schema diferentes.
+Projeto da disciplina **Engenharia de Dados — CEUB**. Implementa um **Data Lakehouse com Arquitetura Medalhão** (Bronze → Prata → Ouro
+) que unifica cadastros de clientes e fornecedores fragmentados entre 5 subsidiárias fictícias de uma holding, cada uma com sistema e schema diferentes.
 
 A especificação está em [`Cadastro_Unico_Projeto_para_gerar.pdf`](Cadastro_Unico_Projeto_para_gerar.pdf).
 
@@ -40,7 +41,7 @@ A especificação está em [`Cadastro_Unico_Projeto_para_gerar.pdf`](Cadastro_Un
         └───────────────┘                      └────────────────┘
 ```
 
-**Stack:** Python · MinIO · Parquet · DuckDB · dbt-duckdb · Airflow 2.10 · FastAPI · Docker Compose.
+**Stack:** Python · MinIO · Parquet · DuckDB · dbt-duckdb · Airflow 2.10 · FastAPI · Elementary · Docker Compose.
 
 ## Pré-requisitos
 
@@ -54,8 +55,9 @@ A especificação está em [`Cadastro_Unico_Projeto_para_gerar.pdf`](Cadastro_Un
 make generate         # gera dados sintéticos das 5 fontes (universo determinístico, seed 42)
 make up               # sobe a infra (5 fontes + MinIO + Airflow)
 make ingest-bronze    # extrai das fontes para Parquet/Bronze no MinIO
-make dbt-run          # roda Prata + Ouro
+make dbt-run          # roda Prata + Ouro (instala packages dbt na primeira vez)
 make dbt-test         # 45 testes de qualidade
+make monitor          # source freshness + relatório Elementary em docs/elementary_report.html
 make api-run          # API em http://localhost:8000 (Swagger em /docs)
 ```
 
@@ -360,6 +362,26 @@ ingest_bronze_empresa_e ─┘
 ```
 
 Roda dentro do container `cu-airflow` (Airflow 2.10 standalone, SequentialExecutor + SQLite). As 5 tasks Bronze são independentes no grafo — quando migrarmos para LocalExecutor, executam em paralelo sem mudança de código.
+
+A DAG inclui ainda, após `dbt_test`: `dbt_source_freshness` e `edr_report` — alimentam o dashboard de monitoramento (próxima seção). Ambas com `trigger_rule="all_done"` para publicar o relatório mesmo quando algum teste falha (é justamente quando ele importa).
+
+## Monitoramento de dados
+
+[**Elementary**](https://www.elementary-data.com/) como dbt package adiciona observabilidade ao pipeline sem subir nenhum serviço extra. Cobre três lacunas que o `dbt test` puro não cobre:
+
+- **Freshness das fontes Bronze** — `_ingested_at` em cada Parquet alimenta `dbt source freshness`; warn em 12h sem batch, error em 36h.
+- **Anomalias de volume e dimensões** — testes em `int_clientes_padronizados`, `int_fornecedores_padronizados` (volume) e na coluna `fonte` (distribuição por subsidiária). Precisam de ~7 runs históricos para baseline confiável.
+- **Schema changes** — em `golden_clientes`, sinaliza alterações que possam quebrar o contrato da API.
+
+Estado interno fica no schema `elementary` do DuckDB local (tabelas mutáveis — sobrescreve o default `external`).
+
+```bash
+make dbt-deps    # instala Elementary (1ª vez)
+make monitor     # roda freshness + testes + gera o HTML
+open docs/elementary_report.html
+```
+
+O HTML é estático (aplicativo React empacotado num único arquivo) — basta abrir no browser. 4 abas: **Test Results**, **Models** (com freshness + run history), **Dashboard** (anomalias) e **Lineage**. Em produção, dá para publicar num bucket MinIO público; aqui fica em `docs/` gitignored.
 
 ## Estrutura de pastas
 

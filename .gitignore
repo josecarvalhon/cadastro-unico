@@ -16,6 +16,11 @@ dbt/dbt_packages/
 dbt/logs/
 dbt/cadastro_unico.duckdb*
 
+# Elementary (relatório HTML estático + working dir da CLI edr)
+docs/elementary_report.html
+docs/elementary_report.html.assets/
+edr_target/
+
 # DuckDB local
 *.duckdb
 *.duckdb.wal

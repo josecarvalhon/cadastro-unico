@@ -5,6 +5,12 @@ sources:
     description: "Camada Bronze — dados brutos extraídos das fontes, em Parquet no MinIO."
     meta:
       external_location: "s3://lakehouse/bronze/{name}/**/*.parquet"
+    # _ingested_at é gravado como string ISO 8601 pelo conector Bronze
+    # (ver ingest/bronze/_common.py). CAST permite o dbt comparar com NOW().
+    loaded_at_field: "CAST(_ingested_at AS TIMESTAMP)"
+    freshness:
+      warn_after: { count: 12, period: hour }
+      error_after: { count: 36, period: hour }
     tables:
       - name: empresa_a_clientes
         meta:

@@ -14,3 +14,6 @@ minio==7.2.7
 dbt-core==1.11.11
 dbt-duckdb==1.10.1
 duckdb>=1.0.0
+
+# Observabilidade (CLI `edr`)
+elementary-data>=0.16.0

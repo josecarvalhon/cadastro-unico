@@ -24,6 +24,11 @@ models:
 
   - name: golden_clientes
     description: "Golden Records de clientes — 1 linha por entidade consolidada."
+    data_tests:
+      # Protege o contrato da API: qualquer alteração de schema é sinalizada.
+      - elementary.schema_changes:
+          config:
+            tags: ['elementary']
     columns:
       - name: id_golden
         tests: [not_null, unique]

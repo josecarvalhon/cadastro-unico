@@ -19,6 +19,10 @@ dbt-core==1.11.11
 dbt-duckdb==1.10.1
 duckdb>=1.0.0
 
+# Observabilidade de dados (CLI `edr` para gerar dashboard HTML;
+# o package dbt vem por `dbt deps`, não por pip).
+elementary-data>=0.16.0
+
 # API e mock
 fastapi==0.110.0
 uvicorn==0.29.0

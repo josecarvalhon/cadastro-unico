@@ -49,6 +49,17 @@ models:
 
   - name: int_clientes_padronizados
     description: "União de todos os staging de clientes (A, B, D, E)."
+    # Testes Elementary precisam de ~7 runs históricos para baseline confiável.
+    data_tests:
+      - elementary.volume_anomalies:
+          config:
+            tags: ['elementary']
+      - elementary.dimension_anomalies:
+          arguments:
+            dimensions:
+              - fonte
+          config:
+            tags: ['elementary']
     columns:
       - name: id_unicad
         tests: [not_null]
@@ -63,6 +74,10 @@ models:
 
   - name: int_fornecedores_padronizados
     description: "União de todos os staging de fornecedores (A, C, D)."
+    data_tests:
+      - elementary.volume_anomalies:
+          config:
+            tags: ['elementary']
     columns:
       - name: id_unicad
         tests: [not_null]

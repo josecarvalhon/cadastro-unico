@@ -7,3 +7,17 @@ cadastro_unico:
       threads: 4
       extensions:
         - httpfs
+
+# A CLI `edr` (Elementary report) abre conexão própria. Schema fica como
+# `main_elementary` porque dbt-duckdb prefixa o default `main` ao custom
+# schema definido no dbt_project.yml.
+elementary:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'cadastro_unico.duckdb') }}"
+      schema: main_elementary
+      threads: 4
+      extensions:
+        - httpfs

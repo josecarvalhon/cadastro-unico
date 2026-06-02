@@ -31,6 +31,10 @@ on-run-start:
       USE_SSL false
     )
 
+vars:
+  elementary:
+    insert_rows_method: chunk
+
 models:
   cadastro_unico:
     prata:
@@ -39,3 +43,8 @@ models:
     ouro:
       +materialized: external
       +format: parquet
+  # Elementary precisa de tabelas mutáveis (incremental/merge) para histórico
+  # de runs e detecção de anomalias — sobrescreve o default `external`.
+  elementary:
+    +schema: elementary
+    +materialized: table
