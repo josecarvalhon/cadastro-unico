@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: int_clientes_cluster
+    description: "Camada intermediária Ouro: registros Prata enriquecidos com cluster_key e match_method."
+    columns:
+      # id_unicad pode repetir aqui — a Empresa D contém duplicatas propositais
+      # (linhas repetidas no CSV). O cluster_key na Ouro agrupa essas duplicatas.
+      - name: id_unicad
+        tests: [not_null]
+      - name: cluster_key
+        tests: [not_null]
+      - name: match_method
+        tests:
+          - not_null
+          - accepted_values: { values: ['doc_match', 'email_to_doc_match', 'singleton'] }
+
+  - name: int_fornecedores_cluster
+    columns:
+      - name: id_unicad
+        tests: [not_null]
+      - name: cluster_key
+        tests: [not_null]
+
+  - name: golden_clientes
+    description: "Golden Records de clientes — 1 linha por entidade consolidada."
+    columns:
+      - name: id_golden
+        tests: [not_null, unique]
+      - name: cluster_key
+        tests: [not_null, unique]
+      - name: tipo_pessoa
+        tests:
+          - accepted_values:
+              values: ['PF', 'PJ']
+              config:
+                where: "tipo_pessoa is not null"
+      - name: score_completude
+        tests: [not_null]
+
+  - name: golden_fornecedores
+    description: "Golden Records de fornecedores."
+    columns:
+      - name: id_golden
+        tests: [not_null, unique]
+      - name: cluster_key
+        tests: [not_null, unique]
+
+  - name: metricas_qualidade
+    description: "KPIs de qualidade lado a lado Prata/Ouro, por fonte e total."

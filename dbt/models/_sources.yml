@@ -1,0 +1,34 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Camada Bronze — dados brutos extraídos das fontes, em Parquet no MinIO."
+    meta:
+      external_location: "s3://lakehouse/bronze/{name}/**/*.parquet"
+    tables:
+      - name: empresa_a_clientes
+        meta:
+          external_location: "s3://lakehouse/bronze/empresa_a/clientes/**/*.parquet"
+        columns:
+          - name: _source
+            tests: [not_null]
+          - name: _batch_id
+            tests: [not_null]
+      - name: empresa_a_fornecedores
+        meta:
+          external_location: "s3://lakehouse/bronze/empresa_a/fornecedores/**/*.parquet"
+      - name: empresa_b_clientes
+        meta:
+          external_location: "s3://lakehouse/bronze/empresa_b/clientes/**/*.parquet"
+      - name: empresa_c_fornecedores
+        meta:
+          external_location: "s3://lakehouse/bronze/empresa_c/fornecedores/**/*.parquet"
+      - name: empresa_d_clientes
+        meta:
+          external_location: "s3://lakehouse/bronze/empresa_d/clientes/**/*.parquet"
+      - name: empresa_d_fornecedores
+        meta:
+          external_location: "s3://lakehouse/bronze/empresa_d/fornecedores/**/*.parquet"
+      - name: empresa_e_clientes
+        meta:
+          external_location: "s3://lakehouse/bronze/empresa_e/clientes/**/*.parquet"

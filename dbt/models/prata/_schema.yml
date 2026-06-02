@@ -1,0 +1,74 @@
+version: 2
+
+models:
+  - name: stg_empresa_a_clientes
+    description: "Clientes da Empresa A (PostgreSQL) padronizados."
+    columns:
+      - name: id_unicad
+        tests: [not_null, unique]
+      - name: fonte
+        tests: [not_null, accepted_values: { values: ['empresa_a'] }]
+      - name: tipo_cadastro
+        tests: [accepted_values: { values: ['cliente'] }]
+
+  - name: stg_empresa_a_fornecedores
+    columns:
+      - name: id_unicad
+        tests: [not_null, unique]
+      - name: tipo_cadastro
+        tests: [accepted_values: { values: ['fornecedor'] }]
+
+  - name: stg_empresa_b_clientes
+    columns:
+      - name: id_unicad
+        tests: [not_null, unique]
+      - name: tipo_pessoa
+        tests: [accepted_values: { values: ['PF'] }]
+
+  - name: stg_empresa_c_fornecedores
+    columns:
+      - name: id_unicad
+        tests: [not_null, unique]
+      - name: tipo_pessoa
+        tests: [accepted_values: { values: ['PJ'] }]
+
+  - name: stg_empresa_d_clientes
+    columns:
+      - name: id_unicad
+        tests: [not_null]
+
+  - name: stg_empresa_d_fornecedores
+    columns:
+      - name: id_unicad
+        tests: [not_null]
+
+  - name: stg_empresa_e_clientes
+    columns:
+      - name: id_unicad
+        tests: [not_null, unique]
+
+  - name: int_clientes_padronizados
+    description: "União de todos os staging de clientes (A, B, D, E)."
+    columns:
+      - name: id_unicad
+        tests: [not_null]
+      - name: fonte
+        tests:
+          - not_null
+          - accepted_values: { values: ['empresa_a', 'empresa_b', 'empresa_d', 'empresa_e'] }
+      - name: tipo_cadastro
+        tests: [accepted_values: { values: ['cliente'] }]
+      - name: tipo_pessoa
+        tests: [accepted_values: { values: ['PF', 'PJ'] }]
+
+  - name: int_fornecedores_padronizados
+    description: "União de todos os staging de fornecedores (A, C, D)."
+    columns:
+      - name: id_unicad
+        tests: [not_null]
+      - name: fonte
+        tests:
+          - not_null
+          - accepted_values: { values: ['empresa_a', 'empresa_c', 'empresa_d'] }
+      - name: tipo_cadastro
+        tests: [accepted_values: { values: ['fornecedor'] }]

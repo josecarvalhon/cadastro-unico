@@ -1,0 +1,41 @@
+name: 'cadastro_unico'
+version: '1.0.0'
+config-version: 2
+
+profile: 'cadastro_unico'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+  - "logs"
+
+# Configura S3 ao subir conexão (cada DuckDB nova).
+on-run-start:
+  - "INSTALL httpfs"
+  - "LOAD httpfs"
+  - >
+    CREATE OR REPLACE SECRET minio_secret (
+      TYPE S3,
+      KEY_ID '{{ env_var("MINIO_ACCESS_KEY", "minioadmin") }}',
+      SECRET '{{ env_var("MINIO_SECRET_KEY", "minioadmin") }}',
+      ENDPOINT '{{ env_var("MINIO_ENDPOINT", "localhost:9002") }}',
+      URL_STYLE 'path',
+      USE_SSL false
+    )
+
+models:
+  cadastro_unico:
+    prata:
+      +materialized: external
+      +format: parquet
+    ouro:
+      +materialized: external
+      +format: parquet

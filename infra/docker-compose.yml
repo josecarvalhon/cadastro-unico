@@ -1,0 +1,215 @@
+name: cadastro-unico
+
+services:
+  # ============================================================
+  # Object Storage (camadas Bronze/Prata/Ouro)
+  # ============================================================
+  minio:
+    image: minio/minio:latest
+    container_name: cu-minio
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: cu-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://minio:9000 minioadmin minioadmin; do
+          echo "Aguardando MinIO..."; sleep 2;
+        done
+        mc mb -p local/lakehouse/bronze local/lakehouse/prata local/lakehouse/ouro
+        mc ls local/lakehouse
+        echo "Buckets criados."
+
+  # ============================================================
+  # Empresa A — Rede de Varejo (PostgreSQL)
+  # ============================================================
+  postgres-empresa-a:
+    image: postgres:15
+    container_name: cu-postgres-empresa-a
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: empresa_a
+      POSTGRES_PASSWORD: empresa_a
+      POSTGRES_DB: varejo
+    volumes:
+      - pg_a_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./postgres/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U empresa_a -d varejo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Empresa B — Serviços Digitais (MySQL)
+  # ============================================================
+  mysql-empresa-b:
+    image: mysql:8
+    container_name: cu-mysql-empresa-b
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: servicos_digitais
+      MYSQL_USER: empresa_b
+      MYSQL_PASSWORD: empresa_b
+    volumes:
+      - mysql_b_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./mysql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uempresa_b", "-pempresa_b"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ============================================================
+  # Empresa C — Indústria (MongoDB)
+  # ============================================================
+  mongo-empresa-c:
+    image: mongo:7
+    container_name: cu-mongo-empresa-c
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: empresa_c
+      MONGO_INITDB_ROOT_PASSWORD: empresa_c
+      MONGO_INITDB_DATABASE: industria
+    volumes:
+      - mongo_c_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo-empresa-c-seed:
+    image: mongo:7
+    container_name: cu-mongo-empresa-c-seed
+    depends_on:
+      mongo-empresa-c:
+        condition: service_healthy
+    volumes:
+      - ../data/seed/empresa_c:/seed:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        if [ ! -f /seed/fornecedores.ndjson ]; then
+          echo "Aviso: /seed/fornecedores.ndjson não existe. Rode scripts/generate_all.py antes.";
+          exit 0;
+        fi
+        mongoimport --host mongo-empresa-c --port 27017 \
+          --username empresa_c --password empresa_c --authenticationDatabase admin \
+          --db industria --collection fornecedores \
+          --type json --file /seed/fornecedores.ndjson --drop
+        echo "Mongo seed concluído."
+
+  # ============================================================
+  # Empresa E — Startup (API REST mockada)
+  # ============================================================
+  mock-api-empresa-e:
+    image: python:3.11-slim
+    container_name: cu-mock-api-empresa-e
+    working_dir: /app
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./mock-api:/app
+      - ../data/seed:/data/seed:ro
+    command: >
+      sh -c "pip install --no-cache-dir fastapi==0.110.0 uvicorn==0.29.0 &&
+             uvicorn server:app --host 0.0.0.0 --port 8081"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ============================================================
+  # Orquestração — Airflow standalone (1 container, SequentialExecutor + SQLite)
+  # ============================================================
+  airflow:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    image: cadastro-unico/airflow:local
+    container_name: cu-airflow
+    depends_on:
+      minio:
+        condition: service_healthy
+      postgres-empresa-a:
+        condition: service_healthy
+      mysql-empresa-b:
+        condition: service_healthy
+      mongo-empresa-c:
+        condition: service_healthy
+      mock-api-empresa-e:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # Airflow core
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/project/airflow/dags
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      AIRFLOW_HOME: /opt/airflow
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+      # Configurações do nosso projeto (visíveis em todas as tasks via os.environ)
+      PROJECT_ROOT: /opt/project
+      PYTHONPATH: /opt/project
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      PG_A_HOST: postgres-empresa-a
+      PG_A_PORT: "5432"
+      MYSQL_B_HOST: mysql-empresa-b
+      MYSQL_B_PORT: "3306"
+      MONGO_C_HOST: mongo-empresa-c
+      MONGO_C_PORT: "27017"
+      EMPRESA_E_URL: http://mock-api-empresa-e:8081
+      EMPRESA_D_DIR: /opt/project/data/seed/empresa_d
+    volumes:
+      # Projeto inteiro em rw — dbt precisa escrever em target/ e .duckdb.
+      - ..:/opt/project
+      - airflow_home:/opt/airflow              # estado do Airflow (db, logs, etc.)
+    command: standalone
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+volumes:
+  minio_data:
+  pg_a_data:
+  mysql_b_data:
+  mongo_c_data:
+  airflow_home:

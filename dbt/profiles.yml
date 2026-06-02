@@ -1,0 +1,9 @@
+cadastro_unico:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'cadastro_unico.duckdb') }}"
+      threads: 4
+      extensions:
+        - httpfs
