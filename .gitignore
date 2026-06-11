@@ -21,6 +21,9 @@ docs/elementary_report.html
 docs/elementary_report.html.assets/
 edr_target/
 
+# Painel operacional (HTML estático)
+docs/operacional.html
+
 # DuckDB local
 *.duckdb
 *.duckdb.wal

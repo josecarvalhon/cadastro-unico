@@ -383,6 +383,25 @@ open docs/elementary_report.html
 
 O HTML é estático (aplicativo React empacotado num único arquivo) — basta abrir no browser. 4 abas: **Test Results**, **Models** (com freshness + run history), **Dashboard** (anomalias) e **Lineage**. Em produção, dá para publicar num bucket MinIO público; aqui fica em `docs/` gitignored.
 
+## Painel operacional
+
+Complementa o Elementary cobrindo o que ele não cobre: **infra e orquestração**. Verifica 13 cenários ao vivo e renderiza um HTML estático em `docs/operacional.html` com semáforo (verde/amarelo/vermelho/cinza) e **comando concreto para resolver** cada problema detectado.
+
+| Categoria | Checagens |
+| --- | --- |
+| **Infra** | MinIO, PostgreSQL (A), MySQL (B), MongoDB (C), Mock API (E) |
+| **Orquestração** | Airflow scheduler, DAG habilitada, última DAG run, tasks falhadas |
+| **Pipeline** | Freshness Bronze, idade do relatório Elementary, quarentena de batches, FastAPI /health |
+
+```bash
+make ops-dashboard                                   # gera o HTML
+python scripts/ops_dashboard.py --print              # tabela ASCII no terminal
+python scripts/ops_dashboard.py --auto-refresh       # HTML com meta refresh de 60s
+open docs/operacional.html
+```
+
+Cada checagem tem timeout de 3 s e captura erros isoladamente — o painel sempre gera, mesmo com várias coisas mortas. Distingue **serviço fora do ar** (vermelho, ação sugerida) de **coletor quebrado** (cinza). Rode local, fora do Airflow — usar o próprio orquestrador para se auto-monitorar falsifica os resultados.
+
 ## Estrutura de pastas
 
 ```

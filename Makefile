@@ -1,4 +1,4 @@
-.PHONY: help install generate up down logs clean reset status ingest-bronze dbt-deps dbt-run dbt-test dbt-docs monitor api-run airflow-password airflow-trigger sql
+.PHONY: help install generate up down logs clean reset status ingest-bronze dbt-deps dbt-run dbt-test dbt-docs monitor ops-dashboard api-run airflow-password airflow-trigger sql
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -14,6 +14,7 @@ help:
 	@echo "  dbt-test  - roda dbt test"
 	@echo "  dbt-docs  - gera e serve dbt docs"
 	@echo "  monitor   - source freshness + testes + relatório Elementary em docs/elementary_report.html"
+	@echo "  ops-dashboard - painel operacional (infra/orquestração/pipeline) em docs/operacional.html"
 	@echo "  api-run   - sobe a FastAPI em http://localhost:8000 (docs em /docs)"
 	@echo "  airflow-password - imprime a senha do admin gerada pelo Airflow standalone"
 	@echo "  airflow-trigger  - dispara a DAG cadastro_unico_etl manualmente"
@@ -48,6 +49,10 @@ dbt-test: install dbt-deps
 dbt-docs: install
 	cd dbt && DBT_PROFILES_DIR=. ../$(VENV)/bin/dbt docs generate
 	cd dbt && DBT_PROFILES_DIR=. ../$(VENV)/bin/dbt docs serve --port 8082
+
+ops-dashboard:
+	mkdir -p docs
+	$(VENV)/bin/python scripts/ops_dashboard.py
 
 monitor: dbt-deps
 	mkdir -p docs
